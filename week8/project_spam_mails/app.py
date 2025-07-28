@@ -95,12 +95,18 @@ elif page == "📂 Batch Classification":
 elif page == "📊 Data Analysis":
     st.header("Exploratory Data Analysis")
     df = st.session_state["df"]
+
+    # Use the correct column names from your CSV
+    label_col = "Category" if "Category" in df.columns else "Label"
+    message_col = "Message"
+
     st.subheader("Label Distribution")
-    fig = px.pie(df, names="Label", title="Spam vs Ham Distribution")
+    fig = px.pie(df, names=label_col, title="Spam vs Ham Distribution")
     st.plotly_chart(fig)
+
     st.subheader("Message Length Distribution")
-    df["Length"] = df["Message"].str.len()
-    fig2 = px.histogram(df, x="Length", color="Label", nbins=20)
+    df["Length"] = df[message_col].str.len()
+    fig2 = px.histogram(df, x="Length", color=label_col, nbins=20)
     st.plotly_chart(fig2)
 
 # --- Embedding Visualization ---
@@ -112,13 +118,16 @@ elif page == "🧠 Embedding Visualization":
     - Colors show spam/ham labels.
     - Use this to check if your model separates spam and ham well!
     """)
-    # Example: Generate fake embeddings for demo
     df = st.session_state["df"]
+    label_col = "Category" if "Category" in df.columns else "Label"
+    message_col = "Message"
+
+    # Example: Generate fake embeddings for demo (replace with your real embeddings)
     np.random.seed(42)
     embeddings = np.random.randn(len(df), 16)  # Replace with your real embeddings
 
     method = st.selectbox("Dimensionality Reduction Method", ["PCA", "t-SNE"])
-    n_points = st.slider("Number of points to plot", 100, min(1000, len(df)), min(len(df), 500), step=100)
+    n_points = st.slider("Number of points to plot", min(100, len(df)), min(len(df), 500), step=100)
 
     # Reduce to 2D
     if method == "PCA":
@@ -132,14 +141,13 @@ elif page == "🧠 Embedding Visualization":
     viz_df = pd.DataFrame({
         "x": reduced[:, 0],
         "y": reduced[:, 1],
-        "Label": df["Label"][:n_points],
-        "Message": df["Message"][:n_points]
+        label_col: df[label_col][:n_points],
+        message_col: df[message_col][:n_points]
     })
 
-    import plotly.express as px
     fig = px.scatter(
-        viz_df, x="x", y="y", color="Label",
-        hover_data=["Message"],
+        viz_df, x="x", y="y", color=label_col,
+        hover_data=[message_col],
         title=f"{method} Embedding Visualization"
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -149,11 +157,12 @@ elif page == "📈 Model Performance":
     st.header("Model Performance")
     st.write("Evaluate your model with standard classification metrics.")
 
-    # Example: Use your pipeline or sklearn for evaluation
     df = st.session_state["df"]
-    y_true = df["Label"]
-    # For demo, use predictions from pipeline (replace with your real predictions)
-    y_pred = df["Message"].apply(lambda x: pipeline.predict(x, k=3)['prediction'])
+    label_col = "Category" if "Category" in df.columns else "Label"
+    message_col = "Message"
+    y_true = df[label_col]
+    # Use predictions from pipeline
+    y_pred = df[message_col].apply(lambda x: pipeline.predict(x, k=3)['prediction'])
 
     from sklearn.metrics import classification_report, confusion_matrix
     import seaborn as sns
@@ -164,9 +173,10 @@ elif page == "📈 Model Performance":
     st.dataframe(pd.DataFrame(report).transpose())
 
     st.subheader("Confusion Matrix")
-    cm = confusion_matrix(y_true, y_pred, labels=["ham", "spam"])
+    labels = sorted(y_true.unique())
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
     fig_cm, ax = plt.subplots()
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["ham", "spam"], yticklabels=["ham", "spam"], ax=ax)
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels, ax=ax)
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
     st.pyplot(fig_cm)
